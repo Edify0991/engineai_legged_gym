@@ -23,6 +23,8 @@ class ZqSA01Cfg(LeggedRobotCfg):
         pos_limit = 1.0
         vel_limit = 1.0
         torque_limit = 0.85
+        enable_soft_limits = True
+        soft_limit_ratio = 0.9
 
     class asset(LeggedRobotCfg.asset):
         file = '{LEGGED_GYM_ROOT_DIR}/resources/robots/zq_humanoid/urdf/zq_sa01.urdf'

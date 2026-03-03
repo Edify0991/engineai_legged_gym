@@ -438,7 +438,30 @@ class LeggedRobot(BaseTask):
 
         # print("p_gains: ", p_gains)
 
-        torques = p_gains * (actions + self.default_dof_pos - self.dof_pos + self.motor_zero_offsets) - d_gains * self.dof_vel
+        q_des = actions + self.default_dof_pos + self.motor_zero_offsets
+
+        if getattr(self.cfg.safety, "enable_soft_limits", False):
+            soft_limit_ratio = float(getattr(self.cfg.safety, "soft_limit_ratio", 1.0))
+            soft_limit_ratio = min(max(soft_limit_ratio, 0.0), 1.0)
+
+            lower = self.dof_pos_limits[:, 0]
+            upper = self.dof_pos_limits[:, 1]
+            margin = 0.5 * (1.0 - soft_limit_ratio) * (upper - lower)
+
+            lower_soft = lower + margin
+            upper_soft = upper - margin
+
+            q_des = torch.clamp(q_des, lower_soft, upper_soft)
+
+            pushing_lower_hard_limit = (self.dof_pos < lower_soft) & (q_des < self.dof_pos)
+            pushing_upper_hard_limit = (self.dof_pos > upper_soft) & (q_des > self.dof_pos)
+            q_des = torch.where(
+                pushing_lower_hard_limit | pushing_upper_hard_limit,
+                self.dof_pos,
+                q_des,
+            )
+
+        torques = p_gains * (q_des - self.dof_pos) - d_gains * self.dof_vel
 
         torques *= self.torque_multiplier
 
